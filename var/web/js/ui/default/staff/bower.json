@@ -1,0 +1,33 @@
+{
+  "name": "evergreen-staff-client",
+  "version": "0.0.1",
+  "authors": [
+    "Bill Erickson <berick@esilibrary.com>"
+  ],
+  "description": "Evergreen HTML Staff Client",
+  "keywords": [
+    "evergreen"
+  ],
+  "license": "GPL",
+  "homepage": "http://evergreen-ils.org",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "devDependencies": {
+    "bootstrap": "~3.1.1",
+    "jquery": "~2.1.3",
+    "angular": "~1.2.16",
+    "angular-route": "~1.2.16",
+    "angular-mocks": "~1.2.16",
+    "angular-bootstrap": "~0.11.0"
+  },
+  "dependencies": {
+    "angular-hotkeys": "chieffancypants/angular-hotkeys#~1.3.0",
+    "angular-location-update": "./extern/angular-location-update/",
+    "angular-file-saver": "~1.0.2"
+  }
+}
