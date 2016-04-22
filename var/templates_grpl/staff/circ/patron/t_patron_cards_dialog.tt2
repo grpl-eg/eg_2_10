@@ -15,6 +15,12 @@
         <div class="col-md-4">
           <label>[% l('Primary') %]</label>
         </div>
+        <div class="col-md-4">
+          <label>[% l('Creator') %]</label>
+        </div>
+        <div class="col-md-4">
+          <label>[% l('CreateDate') %]</label>
+        </div>
       </div>
       <div class="row" ng-repeat="card in args.cards">
         <div class="col-md-4">{{card.barcode}}</div>
@@ -27,6 +33,8 @@
             ng-model='card._primary'
             ng-disabled="!perms.UPDATE_PATRON_PRIMARY_CARD"/>
         </div>
+	<div class="col-md-4">{{card.creator}}</div>
+	<div class="col-md-4">{{card.create_date}}</div>
       </div>
     </div>
     <div class="modal-footer">
