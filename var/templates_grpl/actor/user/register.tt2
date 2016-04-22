@@ -62,6 +62,8 @@
                     <th id='uedit-all-cards-barcode'>[% l('Barcode') %]</th>
                     <th id='uedit-all-cards-active'>[% l('Active') %]</th>
                     <th id='uedit-all-cards-primary'>[% l('Primary') %]</th>
+                    <th id='uedit-all-cards-create_date'>[% l('Created') %]</th>
+                    <th id='uedit-all-cards-creator'>[% l('Creator') %]</td>
                 </tr>
             </thead>
             <tbody id='uedit-all-cards-tbody'>
@@ -69,11 +71,13 @@
                     <td><div name='barcode'></div></td>
                     <td><div name='active'></div></td>
                     <td><div name='primary'></div></td>
+                    <td><div name='create_date'></div></td>
+                    <td><div name='creator'></div></td>
                 </tr>
             </tbody>
             <tbody>
                 <tr>
-                    <td colspan='3' style='text-align:center;'>
+                    <td colspan='4' style='text-align:center;'>
                         <button jsId='allCardsClose' dojoType='dijit.form.Button' onClick='allCardsDialog.hide()' scrollOnFocus='false'>[% l('Close') %]</button>
                         <span id='uedit-apply-card-changes'><button jsId='allCardsApply' dojoType='dijit.form.Button' onClick='applyCardChanges()' scrollOnFocus='false'>[% l('Apply Changes') %]</button></span>
                     </td>

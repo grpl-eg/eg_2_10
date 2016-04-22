@@ -404,6 +404,8 @@ function drawAllCards() {
             row.setAttribute("cardid", card.id());
             row.card = card;
             getByName(row, 'barcode').innerHTML = card.barcode();
+            getByName(row, 'creator').innerHTML = card.creator();
+            getByName(row, 'create_date').innerHTML = card.create_date();
             if(cardPerms['UPDATE_PATRON_ACTIVE_CARD']) {
                 row.active_checkbox = new dijit.form.CheckBox({
                     scrollOnFocus:false,

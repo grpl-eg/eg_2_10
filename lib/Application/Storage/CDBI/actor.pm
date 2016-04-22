@@ -150,7 +150,7 @@ use base qw/actor/;
 
 __PACKAGE__->table( 'actor_card' );
 __PACKAGE__->columns( Primary => qw/id/ );
-__PACKAGE__->columns( Essential => qw/usr barcode active/ );
+__PACKAGE__->columns( Essential => qw/usr barcode active creator create_date/ );
 
 #-------------------------------------------------------------------------------
 package actor::user_access_entry;

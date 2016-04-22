@@ -861,6 +861,7 @@ sub _add_update_cards {
 sub _add_card {
     my( $e, $card ) = @_;
     $card->clear_id();
+    $card->creator($e->requestor->id);
 
     $logger->info("Adding new patron card ".$card->barcode);
 
