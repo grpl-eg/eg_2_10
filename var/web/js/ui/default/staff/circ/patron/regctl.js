@@ -67,6 +67,23 @@ angular.module('egCoreMod')
         });
     }
 
+    // When editing a user with addresses linked to other users, fetch
+    // the linked user(s) so we can display their names and edit links.
+    service.get_linked_addr_users = function(addrs) {
+        angular.forEach(addrs, function(addr) {
+            if (addr.usr == service.existing_patron.id()) return;
+            egCore.pcrud.retrieve('au', addr.usr)
+            .then(function(usr) {
+                addr._linked_owner_id = usr.id();
+                addr._linked_owner = service.format_name(
+                    usr.family_name(),
+                    usr.first_given_name(),
+                    usr.second_given_name()
+                );
+            })
+        });
+    }
+
     service.apply_secondary_groups = function(user_id, group_ids) {
         return egCore.net.request(
             'open-ils.actor',
@@ -125,6 +142,16 @@ angular.module('egCoreMod')
     }
 
     service.check_dupe_username = function(usrname) {
+
+        // empty usernames can't be dupes
+        if (!usrname) return $q.when(false);
+
+        // avoid dupe check if username matches the originally loaded usrname
+        if (service.existing_patron) {
+            if (usrname == service.existing_patron.usrname())
+                return $q.when(false);
+        }
+
         return egCore.net.request(
             'open-ils.actor',
             'open-ils.actor.username.exists',
@@ -573,6 +600,8 @@ angular.module('egCoreMod')
      */
     service.init_existing_patron = function(current) {
 
+        service.existing_patron = current;
+
         var patron = egCore.idl.toHash(current);
 
         patron.home_ou = egCore.org.get(patron.home_ou.id);
@@ -598,6 +627,21 @@ angular.module('egCoreMod')
 
         angular.forEach(patron.addresses, 
             function(addr) { service.ingest_address(patron, addr) });
+
+        service.get_linked_addr_users(patron.addresses);
+
+        // Remove stat cat entries that link to out-of-scope stat
+        // cats.  With this, we avoid unnecessarily updating (or worse,
+        // modifying) stat cat values that are not ours to modify.
+        patron.stat_cat_entries = patron.stat_cat_entries.filter(
+            function(map) {
+                return Boolean(
+                    // service.stat_cats only contains in-scope stat cats.
+                    service.stat_cats.filter(function(cat) { 
+                        return (cat.id() == map.stat_cat.id) })[0]
+                );
+            }
+        );
 
         // toss entries for existing stat cat maps into our living 
         // stat cat entry map, which is modified within the template.
@@ -1035,8 +1079,8 @@ angular.module('egCoreMod')
 }]);
 
 
-function PatronRegCtrl($scope, $routeParams, 
-    $q, $modal, $window, egCore, patronSvc, patronRegSvc, egUnloadPrompt) {
+function PatronRegCtrl($scope, $routeParams, $q, $modal, $window, egCore, 
+    patronSvc, patronRegSvc, egUnloadPrompt, egAlertDialog) {
 
     $scope.page_data_loaded = false;
     $scope.clone_id = patronRegSvc.clone_id = $routeParams.clone_id;
@@ -1160,7 +1204,9 @@ function PatronRegCtrl($scope, $routeParams,
         $scope.page_data_loaded = true;
 
         prs.set_field_patterns(field_patterns);
+        apply_username_regex();
     });
+
 
     // update the currently displayed field documentation
     $scope.set_selected_field_doc = function(cls, field) {
@@ -1185,7 +1231,8 @@ function PatronRegCtrl($scope, $routeParams,
     // 3 == value universally required
     // 2 == field is visible by default
     // 1 == field is suggested by default
-    var field_visibility = {
+    var field_visibility = {};
+    var default_field_visibility = {
         'ac.barcode' : 3,
         'au.usrname' : 3,
         'au.passwd' :  3,
@@ -1210,15 +1257,16 @@ function PatronRegCtrl($scope, $routeParams,
         'surveys' : 1
     }; 
 
-    // returns true if the selected field should be visible
+    // Returns true if the selected field should be visible
     // given the current required/suggested/all setting.
+    // The visibility flag applied to each field as a result of calling
+    // this function also sets (via the same flag) the requiredness state.
     $scope.show_field = function(field_key) {
+        // org settings have not been received yet.
+        if (!$scope.org_settings) return false;
 
         if (field_visibility[field_key] == undefined) {
             // compile and cache the visibility for the selected field
-
-            // org settings have not been received yet.
-            if (!$scope.org_settings) return false;
 
             var req_set = 'ui.patron.edit.' + field_key + '.require';
             var sho_set = 'ui.patron.edit.' + field_key + '.show';
@@ -1226,13 +1274,21 @@ function PatronRegCtrl($scope, $routeParams,
 
             if ($scope.org_settings[req_set]) {
                 field_visibility[field_key] = 3;
+
             } else if ($scope.org_settings[sho_set]) {
                 field_visibility[field_key] = 2;
+
             } else if ($scope.org_settings[sug_set]) {
                 field_visibility[field_key] = 1;
-            } else {
-                field_visibility[field_key] = 0;
             }
+        }
+
+        if (field_visibility[field_key] == undefined) {
+            // No org settings were applied above.  Use the default
+            // settings if present or assume the field has no
+            // visibility flags applied.
+            field_visibility[field_key] = 
+                default_field_visibility[field_key] || 0;
         }
 
         return field_visibility[field_key] >= $scope.edit_passthru.vis_level;
@@ -1295,6 +1351,14 @@ function PatronRegCtrl($scope, $routeParams,
     // when the patron is updated.
     deleted_addresses = [];
     $scope.delete_address = function(id) {
+
+        if ($scope.patron.isnew &&
+            $scope.patron.addresses.length == 1 &&
+            $scope.org_settings['ui.patron.registration.require_address']) {
+            egAlertDialog.open(egCore.strings.REG_ADDR_REQUIRED);
+            return;
+        }
+
         var addresses = [];
         angular.forEach($scope.patron.addresses, function(addr) {
             if (addr.id == id) {
@@ -1321,7 +1385,7 @@ function PatronRegCtrl($scope, $routeParams,
         });
     }
 
-    $scope.replace_card = function() {
+    $scope.replace_card = function(inet) {
         $scope.patron.card.active = false;
         $scope.patron.card.ischanged = true;
         $scope.disable_bc = false;
@@ -1333,6 +1397,14 @@ function PatronRegCtrl($scope, $routeParams,
         new_card._primary = 'on';
         $scope.patron.card = new_card;
         $scope.patron.cards.push(new_card);
+	if (inet)
+	   $scope.gen_inet_num();
+    }
+
+    $scope.gen_inet_num = function() {
+   	var rnd = Math.floor(Math.random()*999999);
+	rnd = '555'+rnd;
+	$scope.patron.card.barcode = rnd;	
     }
 
     $scope.day_phone_changed = function(phone) {
@@ -1350,10 +1422,9 @@ function PatronRegCtrl($scope, $routeParams,
             'open-ils.actor.barcode.exists',
             egCore.auth.token(), bc
         ).then(function(resp) {
-            if (resp == '1') {
+            if (resp == '1') { // duplicate card
                 $scope.dupe_barcode = true;
                 console.log('duplicate barcode detected: ' + bc);
-                // DUPLICATE CARD
             } else {
                 if (!$scope.patron.usrname)
                     $scope.patron.usrname = bc;
@@ -1543,6 +1614,27 @@ function PatronRegCtrl($scope, $routeParams,
         egUnloadPrompt.attach($scope);
     }
 
+    // username regex (if present) must be removed any time
+    // the username matches the barcode to avoid firing the
+    // invalid field handlers.
+    function apply_username_regex() {
+        var regex = $scope.org_settings['opac.username_regex'];
+        if (regex) {
+            if ($scope.patron.card.barcode) {
+                // username must match the regex or the barcode
+                field_patterns.au.usrname = 
+                    new RegExp(
+                        regex + '|^' + $scope.patron.card.barcode + '$');
+            } else {
+                // username must match the regex
+                field_patterns.au.usrname = new RegExp(regex);
+            }
+        } else {
+            // username can be any format.
+            field_patterns.au.usrname = new RegExp('.*');
+        }
+    }
+
     // obj could be the patron, an address, etc.
     // This is called any time a form field achieves then loses focus.
     // It does not necessarily mean the field has changed.
@@ -1599,6 +1691,7 @@ function PatronRegCtrl($scope, $routeParams,
             case 'barcode':
                 // TODO: finish barcode_changed handler.
                 $scope.barcode_changed(value);
+                apply_username_regex();
                 break;
 
             case 'dob':
@@ -1634,26 +1727,35 @@ function PatronRegCtrl($scope, $routeParams,
         );
     }
 
+    // Returns true if the Save and Save & Clone buttons should be disabled.
+    $scope.edit_passthru.hide_save_actions = function() {
+        return $scope.patron.isnew ?
+            !$scope.perms.CREATE_USER : 
+            !$scope.perms.UPDATE_USER;
+    }
+
     // Returns true if any input elements are tagged as invalid
-    $scope.edit_passthru.has_invalid_fields = function() {
+    // via Angular patterns or required attributes.
+    function form_has_invalid_fields() {
         return $('#patron-reg-container .ng-invalid').length > 0;
     }
 
-    // Returns true if the Save and Save & Clone buttons should be disabled.
-    $scope.edit_passthru.hide_save_actions = function() {
-        var can_save = $scope.patron.isnew ?
-            $scope.perms.CREATE_USER : $scope.perms.UPDATE_USER;
-
+    function form_is_incomplete() {
         return (
-            !can_save ||
             $scope.dupe_username ||
             $scope.dupe_barcode ||
-            $scope.edit_passthru.has_invalid_fields()
+            form_has_invalid_fields()
         );
+
     }
 
     $scope.edit_passthru.save = function(save_args) {
         if (!save_args) save_args = {};
+
+        if (form_is_incomplete()) {
+            // User has not provided valid values for all required fields.
+            return egAlertDialog.open(egCore.strings.REG_INVALID_FIELDS);
+        }
 
         // remove page unload warning prompt
         egUnloadPrompt.clear();
@@ -1723,5 +1825,5 @@ function PatronRegCtrl($scope, $routeParams,
 // This controller may be loaded from different modules (patron edit vs.
 // register new patron), so we have to inject the controller params manually.
 PatronRegCtrl.$inject = ['$scope', '$routeParams', '$q', '$modal', 
-    '$window', 'egCore', 'patronSvc', 'patronRegSvc', 'egUnloadPrompt'];
+    '$window', 'egCore', 'patronSvc', 'patronRegSvc', 'egUnloadPrompt', 'egAlertDialog'];
 

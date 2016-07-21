@@ -155,6 +155,10 @@ within the "form" by name for validation.
   <div class="col-md-6 patron-reg-example">
       <button class="btn btn-default" ng-show="!patron.isnew"
         ng-click="replace_card()">[% l('Replace Barcode') %]</button>
+      <button class="btn btn-default" ng-show="!patron.isnew"
+	ng-click="replace_card(1)">[% l('INET Number') %]</button>
+      <button class="btn btn-default" ng-show="patron.isnew"
+        ng-click="gen_inet_num()">[% l('INET Number') %]</button>
       <button class="btn btn-default" 
         ng-click="cards_dialog()">[% l('See All') %]</button>
       <div ng-show="dupe_barcode" class="patron-reg-validation-alert">
