@@ -193,6 +193,7 @@ sub load {
     return $self->load_myopac_receipt_email if $path =~ m|opac/myopac/receipt_email|;
     return $self->load_myopac_receipt_print if $path =~ m|opac/myopac/receipt_print|;
     return $self->load_myopac_update_email if $path =~ m|opac/myopac/update_email|;
+    return $self->load_myopac_confirm_lost_card if $path =~ m|opac/myopac/confirm_lost|;
     return $self->load_myopac_update_password if $path =~ m|opac/myopac/update_password|;
     return $self->load_myopac_update_username if $path =~ m|opac/myopac/update_username|;
     return $self->load_myopac_bookbags if $path =~ m|opac/myopac/lists|;
